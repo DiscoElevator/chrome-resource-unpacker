@@ -1,6 +1,6 @@
 node-chrome-pak
 =============
-node script for pack/unpack chrome .pak file
+node script for pack/unpack .pak file of chrome
 
 
 ### Useage ###
@@ -12,5 +12,5 @@ node script for pack/unpack chrome .pak file
 
 ### Tested Version ###
 -------------
-* Chrome 26.0.1410.5 dev-m
-* node.js v0.8.20
+* Chrome 34.0.1847.131 m
+* node.js v0.10.28
