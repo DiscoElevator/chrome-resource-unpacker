@@ -1,6 +1,8 @@
 /*
 	node-chrome-pak
 	Written by Hwang, C. W. ( hikipro95(at)gmail.com )
+
+	This script released under MIT License.
 */
 
 /*
@@ -9,7 +11,7 @@
 	encoding		   = 0x08
 	
 	resource info :
-		resource id		= 2 bytes
+		resource id	       = 2 bytes
 		offset of resource = 4 bytes
 */
 
@@ -182,7 +184,7 @@ function unpack_proc(pak_file_path, extract_dst_dir) {
 		
 		var res_file_name = res_info[i].id.toString();
 		
-		//console.log("name: " + res_file_name + ", offset: 0x" + res_info[i].offset.toString(16) + ", size: 0x" + size.toString(16));
+		console.log("name: " + res_file_name + ", offset: 0x" + res_info[i].offset.toString(16) + ", size: 0x" + size.toString(16));
 		
 		var res_buf = pak_buf.slice(res_info[i].offset, res_info[i].offset + size);
 		

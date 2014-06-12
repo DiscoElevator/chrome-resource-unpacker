@@ -14,3 +14,9 @@ node script for pack/unpack .pak file of chrome
 -------------
 * Chrome 34.0.1847.131 m
 * node.js v0.10.28
+
+
+### License ###
+-------------
+MIT License
+
