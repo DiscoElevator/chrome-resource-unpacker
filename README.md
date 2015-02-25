@@ -1,6 +1,7 @@
 chrome-resource-unpacker
 =============
 node script for pack/unpack .pak file of chrome
+
 Forked from https://bitbucket.org/hikipro/node-chrome-pak
 
 
