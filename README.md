@@ -1,9 +1,10 @@
-node-chrome-pak
+chrome-resource-unpacker
 =============
 node script for pack/unpack .pak file of chrome
+Forked from https://bitbucket.org/hikipro/node-chrome-pak
 
 
-### Useage ###
+### Usage ###
 -------------
     node main.js pack [source directory] [.pak file path]
     node main.js unpack [.pak file path] [destination directory]
