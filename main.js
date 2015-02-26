@@ -15,13 +15,13 @@
 		offset of resource = 4 bytes
 */
 
-var fs = require('fs'),
-	path = require('path');
+var fs = require('fs');
+var	path = require('path');
 
-var help_msg =
-		"Usage: " + process.argv[0] + " " + path.basename(process.argv[1]) + " pack   [source directory] [.pak file path]\n" +
-		"       " + process.argv[0] + " " + path.basename(process.argv[1]) + " unpack [.pak file path] [destination directory]\n" +
-		"       " + process.argv[0] + " " + path.basename(process.argv[1]) + " replace [.pak file path] [res id] [new file path]";
+var helpMsg =
+	"Usage: " + process.argv[0] + " " + path.basename(process.argv[1]) + " pack   [source directory] [.pak file path]\n" +
+	"       " + process.argv[0] + " " + path.basename(process.argv[1]) + " unpack [.pak file path] [destination directory]\n" +
+	"       " + process.argv[0] + " " + path.basename(process.argv[1]) + " replace [.pak file path] [res id] [new file path]";
 
 console.log(
 	"node-chrome-pak\n" +
@@ -29,175 +29,177 @@ console.log(
 );
 
 if (!process.argv[3]) {
-	console.log(help_msg);
+	console.log(helpMsg);
 	return;
 }
 
 if (process.argv[2] == "pack") {
-	pack_proc(process.argv[3], process.argv[4]);
+	pack(process.argv[3], process.argv[4]);
 } else if (process.argv[2] == "unpack") {
-	unpack_proc(process.argv[3], process.argv[4]);
+	unpack(process.argv[3], process.argv[4]);
 } else if (process.argv[2] == "replace") {
-	replace_proc(process.argv[3], process.argv[4], process.argv[5]);
+	replace(process.argv[3], process.argv[4], process.argv[5]);
 } else {
-	console.log(help_msg);
+	console.log(helpMsg);
 	return;
 }
 
-function replace_proc(pak_file_path, src_res_id, new_file_path) {
-	var pak_buf = fs.readFileSync(pak_file_path);
-	var pak_fd  = fs.openSync(pak_file_path, "r+");
-	
-	var res_count = pak_buf.readUInt32LE(0x04);
-	
-	var pos = 9;
-	
-	var res_info = [],
-		src_header_idx = 0;
-	
-	for (var i=0; i<res_count; i++) {
-		res_info.push({
-			id:	 pak_buf.readUInt16LE(pos),
-			offset: pak_buf.readUInt32LE(pos + 0x02)
+function replace(pakFilePath, srcResourceId, newFilePath) {
+	var pakBuf = fs.readFileSync(pakFilePath);
+	var pakFile = fs.openSync(pakFilePath, "r+");
+
+	var resCount = pakBuf.readUInt32LE(0x04);
+
+	var position = 9;
+
+	var resInfo = [];
+	var srcHeaderId = 0;
+
+	for (var i = 0; i < resCount; i++) {
+		resInfo.push({
+			id: pakBuf.readUInt16LE(position),
+			offset: pakBuf.readUInt32LE(position + 0x02)
 		});
-		
-		if (res_info[i].id == src_res_id) {
-			src_header_idx = i;
+
+		if (resInfo[i].id === srcResourceId) {
+			srcHeaderId = i;
 		}
-		
-		pos += 0x06;
+
+		position += 0x06;
 	}
-	
-	var new_file_buf = fs.readFileSync(new_file_path);
-	
-	var ori_src_res_offset = res_info[src_header_idx].offset;
-	var ori_src_next_res_offset = res_info[src_header_idx+1].offset;
-	
-	pos = 0x00;
-	
-	var ori_size = res_info[src_header_idx+1].offset - res_info[src_header_idx].offset;
-	
-	var header_buf = new Buffer(res_count * 0x06);
-	for (var i=0; i<res_count; i++) {
-		header_buf.writeUInt16LE(res_info[i].id, pos);
-		
-		if (i > src_header_idx) {
-			header_buf.writeUInt32LE(res_info[i].offset + (new_file_buf.length - ori_size), pos + 0x02);
+
+	var newFileBuf = fs.readFileSync(newFilePath);
+
+	var srcResourceOffset = resInfo[srcHeaderId].offset;
+	var srcNextResourceOffset = resInfo[srcHeaderId + 1].offset;
+
+	position = 0x00;
+
+	var originSize = resInfo[srcHeaderId + 1].offset - resInfo[srcHeaderId].offset;
+
+	var headerBuf = new Buffer(resCount * 0x06);
+	for (var i = 0; i < resCount; i++) {
+		headerBuf.writeUInt16LE(resInfo[i].id, position);
+
+		if (i > srcHeaderId) {
+			headerBuf.writeUInt32LE(resInfo[i].offset + (newFileBuf.length - originSize), position + 0x02);
 		} else {
-			header_buf.writeUInt32LE(res_info[i].offset, pos + 0x02);
+			headerBuf.writeUInt32LE(resInfo[i].offset, position + 0x02);
 		}
-		
-		pos += 0x06;
+
+		position += 0x06;
 	}
-	
-	var backup_buf = pak_buf.slice(ori_src_next_res_offset, pak_buf.length);
-	
-	fs.writeSync(pak_fd, header_buf, 0, header_buf.length, 0x09);
-	fs.writeSync(pak_fd, new_file_buf, 0, new_file_buf.length, ori_src_res_offset);
-	fs.writeSync(pak_fd, backup_buf, 0, backup_buf.length, ori_src_res_offset + new_file_buf.length);
+
+	var backupBuf = pakBuf.slice(srcNextResourceOffset, pakBuf.length);
+
+	fs.writeSync(pakFile, headerBuf, 0, headerBuf.length, 0x09);
+	fs.writeSync(pakFile, newFileBuf, 0, newFileBuf.length, srcResourceOffset);
+	fs.writeSync(pakFile, backupBuf, 0, backupBuf.length, srcResourceOffset + newFileBuf.length);
 }
 
-function pack_proc(src_dir, pack_dst_path) {
-	var dst_path = (pack_dst_path ? pack_dst_path : __dirname + "/packed.pak");
-	
-	var pak_fd = fs.openSync(dst_path, "w+");
-	
-	var item_list = fs.readdirSync(src_dir);
-	
-	var ver_number_buf = new Buffer(0x04);
-	ver_number_buf.writeUInt32LE(0x04, 0);
-	
-	var res_count_buf = new Buffer(0x04);
-	res_count_buf.writeUInt32LE(item_list.length, 0x00);
-	
-	var encoding_buf = new Buffer(0x01);
-	encoding_buf[0] = 0x01;
-	
-	fs.writeSync(pak_fd, ver_number_buf, 0, 4, 0x00);
-	fs.writeSync(pak_fd, res_count_buf, 0, 4, 0x04);
-	fs.writeSync(pak_fd, encoding_buf, 0, 1, 0x08);
-	
-	var pos = 0x09, offset_tmp = 0x09 + (item_list.length * 0x06);
-	
-	for (var i=0; i<item_list.length; i++) {
-		var id = parseInt(item_list[i]),
-			id_buf = new Buffer(2);
-		
-		id_buf.writeUInt16LE(id, 0x00);
-		
-		var size = fs.statSync(src_dir + "/" + item_list[i]).size,
-			offset_buf = new Buffer(4);
-		
-		offset_buf.writeUInt32LE(offset_tmp, 0x00);
-		offset_tmp += size;
-		
-		fs.writeSync(pak_fd, id_buf, 0, 2, pos);
-		fs.writeSync(pak_fd, offset_buf, 0, 4, pos + 0x02);
-		
-		pos += 0x06;
+function pack(srcDir, packDstPath) {
+	var dst_path = (packDstPath ? packDstPath : __dirname + "/packed.pak");
+
+	var pakFile = fs.openSync(dst_path, "w+");
+
+	var items = fs.readdirSync(srcDir);
+
+	var versionNumberBuf = new Buffer(0x04);
+	versionNumberBuf.writeUInt32LE(0x04, 0);
+
+	var resCountBuf = new Buffer(0x04);
+	resCountBuf.writeUInt32LE(items.length, 0x00);
+
+	var encodingBuf = new Buffer(0x01);
+	encodingBuf[0] = 0x01;
+
+	fs.writeSync(pakFile, versionNumberBuf, 0, 4, 0x00);
+	fs.writeSync(pakFile, resCountBuf, 0, 4, 0x04);
+	fs.writeSync(pakFile, encodingBuf, 0, 1, 0x08);
+
+	var position = 0x09;
+	var tmpOffset = 0x09 + (items.length * 0x06);
+
+	for (var i = 0; i < items.length; i++) {
+		var id = parseInt(items[i]);
+		var idBuf = new Buffer(2);
+
+		idBuf.writeUInt16LE(id, 0x00);
+
+		var size = fs.statSync(srcDir + "/" + items[i]).size;
+		var offsetBuf = new Buffer(4);
+
+		offsetBuf.writeUInt32LE(tmpOffset, 0x00);
+		tmpOffset += size;
+
+		fs.writeSync(pakFile, idBuf, 0, 2, position);
+		fs.writeSync(pakFile, offsetBuf, 0, 4, position + 0x02);
+
+		position += 0x06;
 	}
-	
-	for (var i=0; i<item_list.length; i++) {
-		var file_buf = fs.readFileSync(src_dir + "/" + item_list[i]);
-		
-		fs.writeSync(pak_fd, file_buf, 0, file_buf.length, pos);
-		pos += file_buf.length;
+
+	for (var i = 0; i < items.length; i++) {
+		var fileBuf = fs.readFileSync(srcDir + "/" + items[i]);
+
+		fs.writeSync(pakFile, fileBuf, 0, fileBuf.length, position);
+		position += fileBuf.length;
 	}
-	
-	fs.closeSync(pak_fd);
+
+	fs.closeSync(pakFile);
 }
 
+function unpack(pakFilePath, extractDstDir) {
+	var pakBuf = fs.readFileSync(pakFilePath);
 
-function unpack_proc(pak_file_path, extract_dst_dir) {
-	var pak_buf = fs.readFileSync(pak_file_path);
+	var dstDir = (extractDstDir ? extractDstDir : __dirname + "/extracted/");
 
-	var dst_dir = (extract_dst_dir ? extract_dst_dir : __dirname + "/extracted/");
-	
-	var ver_number = pak_buf.readUInt32LE(0x00),
-		res_count  = pak_buf.readUInt32LE(0x04),
-		encoding   = pak_buf.readUInt8(0x08);
-	
-	var pos = 0x09;
-	
-	var res_info = [];
-	
-	for (var i=0; i<res_count; i++) {
-		res_info.push({
-			id:     pak_buf.readUInt16LE(pos),
-			offset: pak_buf.readUInt32LE(pos + 0x02)
+	var versionNumber = pakBuf.readUInt32LE(0x00);
+	var resCount = pakBuf.readUInt32LE(0x04);
+	var encoding = pakBuf.readUInt8(0x08);
+
+	var position = 0x09;
+
+	var resInfo = [];
+
+	for (var i = 0; i < resCount; i++) {
+		resInfo.push({
+			id: pakBuf.readUInt16LE(position),
+			offset: pakBuf.readUInt32LE(position + 0x02)
 		});
-		
-		pos += 0x06;
+
+		position += 0x06;
 	}
-	
-	console.log("file count = " + res_count);
-	console.log("unpacking at " + dst_dir);
-	
-	for (var i=0; i<res_count; i++) {
+
+	console.log("file count = " + resCount);
+	console.log("unpacking at " + dstDir);
+
+	for (var i = 0; i < resCount; i++) {
 		var size = 0;
-		
-		if (i != res_count-1) {
-			size = res_info[i+1].offset - res_info[i].offset;
+
+		if (i != resCount - 1) {
+			size = resInfo[i + 1].offset - resInfo[i].offset;
 		} else {
-			size = pak_buf.length - res_info[i].offset;
+			size = pakBuf.length - resInfo[i].offset;
 		}
-		
-		var res_file_name = res_info[i].id.toString();
-		
-		console.log("name: " + res_file_name + ", offset: 0x" + res_info[i].offset.toString(16) + ", size: 0x" + size.toString(16));
-		
-		var res_buf = pak_buf.slice(res_info[i].offset, res_info[i].offset + size);
-		
+
+		var resFileName = resInfo[i].id.toString();
+
+		console.log("name: " + resFileName + ", offset: 0x" + resInfo[i].offset.toString(16) + ", size: 0x" + size.toString(16));
+
+		var resBuf = pakBuf.slice(resInfo[i].offset, resInfo[i].offset + size);
+
 		if (size > 0x08) {
-			if (res_buf.readUInt32BE(0x00) == 0x89504E47) { // ‰PNG
-				res_file_name += ".png";
+			if (resBuf.readUInt32BE(0x00) == 0x89504E47) { // ‰PNG
+				resFileName += ".png";
 			}
 		}
-		
-		if (!fs.existsSync(dst_dir)) { fs.mkdirSync(dst_dir); }
-		
-		fs.writeFileSync(dst_dir + res_file_name, res_buf);
+
+		if (!fs.existsSync(dstDir)) {
+			fs.mkdirSync(dstDir);
+		}
+
+		fs.writeFileSync(dstDir + resFileName, resBuf);
 	}
-	
+
 	console.log("unpack process complete!");
 }
