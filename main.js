@@ -188,9 +188,13 @@ function unpack(pakFilePath, extractDstDir) {
 
 		var resBuf = pakBuf.slice(resInfo[i].offset, resInfo[i].offset + size);
 
+		var encodingStr = getEncodingStr(encoding);
+
 		if (size > 0x08) {
 			if (resBuf.readUInt32BE(0x00) == 0x89504E47) { // ‰PNG
 				resFileName += ".png";
+			} else if (encodingStr && (resBuf.toString(encodingStr, 0, 1) === "<")) {
+				resFileName += ".html";
 			}
 		}
 
@@ -202,4 +206,8 @@ function unpack(pakFilePath, extractDstDir) {
 	}
 
 	console.log("unpack process complete!");
+}
+
+function getEncodingStr(encoding) {
+	return (encoding === 0x01) ? "utf-8" : null;
 }
